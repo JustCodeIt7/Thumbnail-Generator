@@ -133,14 +133,14 @@ def add_headline(image, headline):
 def render_thumbnail(idea, used):
     model_id = os.getenv("IMAGE_MODEL_ID", "stabilityai/sd-turbo")
     prompt = f"""
-Create a polished, bold YouTube thumbnail background in 16:9.
-Main visual: {idea["visual"]}
-Style: {idea["style"]}
-Click hook: {idea["hook"]}
-Additional direction: {idea["prompt"]}
-Avoid text, letters, logos, watermarks, clutter, and repeated ideas.
-Do not copy these previous headlines: {", ".join(used) or "none"}
-""".strip()
+    Create a polished, bold YouTube thumbnail background in 16:9.
+    Main visual: {idea["visual"]}
+    Style: {idea["style"]}
+    Click hook: {idea["hook"]}
+    Additional direction: {idea["prompt"]}
+    Avoid text, letters, logos, watermarks, clutter, and repeated ideas.
+    Do not copy these previous headlines: {", ".join(used) or "none"}
+    """.strip()
     turbo = "turbo" in model_id.lower()
     try:
         image = load_pipeline(model_id, image_device())(
