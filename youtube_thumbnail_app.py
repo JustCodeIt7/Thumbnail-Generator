@@ -85,8 +85,6 @@ Transcript:
     result = planner.invoke(prompt)
     # Enforce the requested count and convert to plain dicts for state serialization
     ideas = [i.model_dump() for i in result.ideas[: state["count"]]]
-    if len(ideas) < state["count"]:
-        raise ValueError("Model returned fewer thumbnail ideas than requested.")
     return {"ideas": ideas}
 
 
@@ -194,22 +192,17 @@ generate = st.button("Generate thumbnails", type="primary", width="stretch")
 
 # Validate inputs then run the full plan → render pipeline
 if generate:
-    if not os.getenv("OPENAI_API_KEY"):
-        st.error("Missing OPENAI_API_KEY environment variable.")
-    elif not transcript.strip():
-        st.error("Please paste a transcript first.")
-    else:
-        graph = build_graph()
-        progress = st.progress(0, text="Planning thumbnail concepts...")
-        result = graph.invoke(
-            {
-                "transcript": transcript.strip(),
-                "count": int(count),
-                "ideas": [],
-                "images": [],
-            }
-        )
-        progress.progress(100, text="Done")
+    graph = build_graph()
+    progress = st.progress(0, text="Planning thumbnail concepts...")
+    result = graph.invoke(
+        {
+            "transcript": transcript.strip(),
+            "count": int(count),
+            "ideas": [],
+            "images": [],
+        }
+    )
+    progress.progress(100, text="Done")
 
         # Display each concept's details in expandable sections
         st.subheader("Concepts")
