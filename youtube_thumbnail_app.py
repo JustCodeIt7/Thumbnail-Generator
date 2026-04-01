@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from openai import OpenAI
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
+from rich import print
 
 
 ############################# Data Models #############################
@@ -187,7 +188,7 @@ transcript = st.text_area(
     placeholder="Paste the full transcript here...",
 )
 
-generate = st.button("Generate thumbnails", type="primary", use_container_width=True)
+generate = st.button("Generate thumbnails", type="primary", width="stretch")
 
 ######################### Generation Handler ############################
 
@@ -224,7 +225,7 @@ if generate:
         for i, item in enumerate(result["images"]):
             img_bytes = base64.b64decode(item["b64"])
             with cols[i % 3]:  # Cycle through columns for even distribution
-                st.image(img_bytes, caption=item["headline"], use_container_width=True)
+                st.image(img_bytes, caption=item["headline"], width="content")
                 st.download_button(
                     label=f"Download #{item['index']}",
                     data=img_bytes,
