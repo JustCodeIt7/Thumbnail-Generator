@@ -200,44 +200,35 @@ if generate:
     else:
         graph = build_graph()
         progress = st.progress(0, text="Planning thumbnail concepts...")
-        # Execute the graph and handle errors gracefully
-        try:
-            result = graph.invoke(
-                {
-                    "transcript": transcript.strip(),
-                    "count": int(count),
-                    "ideas": [],
-                    "images": [],
-                }
-            )
-            progress.progress(100, text="Done")
+        result = graph.invoke(
+            {
+                "transcript": transcript.strip(),
+                "count": int(count),
+                "ideas": [],
+                "images": [],
+            }
+        )
+        progress.progress(100, text="Done")
 
-            # Display each concept's details in expandable sections
-            st.subheader("Concepts")
-            for item in result["images"]:
-                with st.expander(
-                    f"#{item['index']} — {item['headline']}", expanded=True
-                ):
-                    st.write(f"**Hook:** {item['hook']}")
-                    st.write(f"**Visual:** {item['visual']}")
-                    st.code(item["prompt"], language="text")
+        # Display each concept's details in expandable sections
+        st.subheader("Concepts")
+        for item in result["images"]:
+            with st.expander(f"#{item['index']} — {item['headline']}", expanded=True):
+                st.write(f"**Hook:** {item['hook']}")
+                st.write(f"**Visual:** {item['visual']}")
+                st.code(item["prompt"], language="text")
 
-            # Render thumbnails in a 3-column grid with download buttons
-            st.subheader("Generated thumbnails")
-            cols = st.columns(3)
-            for i, item in enumerate(result["images"]):
-                img_bytes = base64.b64decode(item["b64"])
-                with cols[i % 3]:  # Cycle through columns for even distribution
-                    st.image(
-                        img_bytes, caption=item["headline"], use_container_width=True
-                    )
-                    st.download_button(
-                        label=f"Download #{item['index']}",
-                        data=img_bytes,
-                        file_name=f"thumbnail_{item['index']}.png",
-                        mime="image/png",
-                        use_container_width=True,
-                    )
-        except Exception as e:
-            progress.empty()
-            st.exception(e)
+        # Render thumbnails in a 3-column grid with download buttons
+        st.subheader("Generated thumbnails")
+        cols = st.columns(3)
+        for i, item in enumerate(result["images"]):
+            img_bytes = base64.b64decode(item["b64"])
+            with cols[i % 3]:  # Cycle through columns for even distribution
+                st.image(img_bytes, caption=item["headline"], use_container_width=True)
+                st.download_button(
+                    label=f"Download #{item['index']}",
+                    data=img_bytes,
+                    file_name=f"thumbnail_{item['index']}.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
