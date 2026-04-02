@@ -264,6 +264,27 @@ def generate_thumbnails(transcript, count):
             )
 
 
+def render_sidebar():
+    """Render the sidebar with configuration controls and model info."""
+    with st.sidebar:
+        count = st.number_input(
+            "How many thumbnails?", min_value=1, max_value=6, value=3, step=1
+        )
+        st.text_input(
+            "Ollama model",
+            value=os.getenv("OLLAMA_MODEL", "llama3.2:latest"),
+            disabled=True,
+        )
+        st.text_input(
+            "Image model",
+            value=DEFAULT_IMAGE_MODEL,
+            disabled=True,
+        )
+        st.caption(f"Image device: `{image_device()}`")
+        st.caption("First run may download model weights from Hugging Face.")
+    return count
+
+
 def main():
     """Main Streamlit app function to orchestrate the thumbnail generation workflow."""
     st.set_page_config(
@@ -275,24 +296,7 @@ def main():
     )
 
     # Sidebar: configuration controls (read-only display of active models)
-    with st.sidebar:
-        count = st.number_input(
-            "How many thumbnails?", min_value=1, max_value=6, value=3, step=1
-        )
-        st.text_input(
-            "Ollama model",
-            value=os.getenv("OLLAMA_MODEL", "llama3.2:latest"),
-            disabled=True,
-        )
-        # stabilityai/sd-turbo
-        st.text_input(
-            "Image model",
-            value=DEFAULT_IMAGE_MODEL,
-            disabled=True,
-        )
-        st.caption(f"Image device: `{image_device()}`")
-        st.caption("First run may download model weights from Hugging Face.")
-
+    count = render_sidebar()
     # Main input area for the video transcript
     transcript = st.text_area(
         "YouTube video transcript",
