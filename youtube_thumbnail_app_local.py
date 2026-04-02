@@ -226,6 +226,42 @@ def render_thumbnail(idea, used):
 
 
 ########################### Streamlit UI #######################################
+# TODO Rename this here and in `main`
+def generate_thumbnails(transcript, count):
+    # Step 1: Use Ollama to brainstorm thumbnail concepts
+    with st.spinner("Planning thumbnail concepts with Ollama..."):
+        ideas = plan_thumbnails(transcript.strip(), int(count))
+    # Step 2: Render each concept through the diffusion pipeline
+    progress = st.progress(0, text="Generating thumbnails locally...")
+    images, used = [], []
+    for i, idea in enumerate(ideas, start=1):
+        images.append(render_thumbnail(idea, used))
+        used.append(idea["headline"])  # Track used headlines to avoid repeats
+        progress.progress(
+            i / len(ideas), text=f"Generating thumbnail {i}/{len(ideas)}..."
+        )
+    progress.empty()
+
+    # Display the creative rationale behind each thumbnail
+    st.subheader("Concepts")
+    for i, item in enumerate(images, start=1):
+        with st.expander(f"#{i} - {item['headline']}", expanded=True):
+            st.write(f"**Hook:** {item['hook']}")
+            st.write(f"**Visual:** {item['visual']}")
+            st.code(item["prompt"], language="text")
+    # Render final thumbnails in a 3-column grid with download buttons
+    st.subheader("Generated thumbnails")
+    cols = st.columns(3)
+    for i, item in enumerate(images):
+        with cols[i % 3]:
+            st.image(item["png"], caption=item["headline"], width="stretch")
+            st.download_button(
+                f"Download #{i + 1}",
+                data=item["png"],
+                file_name=f"thumbnail_{i + 1}.png",
+                mime="image/png",
+                width="stretch",
+            )
 
 
 def main():
@@ -270,40 +306,7 @@ def main():
         if not transcript.strip():
             st.error("Please paste a transcript first.")
         else:
-            # Step 1: Use Ollama to brainstorm thumbnail concepts
-            with st.spinner("Planning thumbnail concepts with Ollama..."):
-                ideas = plan_thumbnails(transcript.strip(), int(count))
-            # Step 2: Render each concept through the diffusion pipeline
-            progress = st.progress(0, text="Generating thumbnails locally...")
-            images, used = [], []
-            for i, idea in enumerate(ideas, start=1):
-                images.append(render_thumbnail(idea, used))
-                used.append(idea["headline"])  # Track used headlines to avoid repeats
-                progress.progress(
-                    i / len(ideas), text=f"Generating thumbnail {i}/{len(ideas)}..."
-                )
-            progress.empty()
-
-            # Display the creative rationale behind each thumbnail
-            st.subheader("Concepts")
-            for i, item in enumerate(images, start=1):
-                with st.expander(f"#{i} - {item['headline']}", expanded=True):
-                    st.write(f"**Hook:** {item['hook']}")
-                    st.write(f"**Visual:** {item['visual']}")
-                    st.code(item["prompt"], language="text")
-            # Render final thumbnails in a 3-column grid with download buttons
-            st.subheader("Generated thumbnails")
-            cols = st.columns(3)
-            for i, item in enumerate(images):
-                with cols[i % 3]:
-                    st.image(item["png"], caption=item["headline"], width="stretch")
-                    st.download_button(
-                        f"Download #{i + 1}",
-                        data=item["png"],
-                        file_name=f"thumbnail_{i + 1}.png",
-                        mime="image/png",
-                        width="stretch",
-                    )
+            generate_thumbnails(transcript, count)
 
 
 if __name__ == "__main__":
