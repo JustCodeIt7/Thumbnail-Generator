@@ -224,5 +224,5 @@ if generate:
                     data=img_bytes,
                     file_name=f"thumbnail_{item['index']}.png",
                     mime="image/png",
-                    use_container_width=True,
+                    width="stretch",
                 )

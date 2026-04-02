@@ -190,7 +190,7 @@ transcript = st.text_area(
     placeholder="Paste the full transcript here...",
 )
 
-if st.button("Generate thumbnails", type="primary", use_container_width=True):
+if st.button("Generate thumbnails", type="primary", width="stretch"):
     if not transcript.strip():
         st.error("Please paste a transcript first.")
     else:
@@ -219,13 +219,11 @@ if st.button("Generate thumbnails", type="primary", use_container_width=True):
             cols = st.columns(3)
             for i, item in enumerate(images):
                 with cols[i % 3]:
-                    st.image(
-                        item["png"], caption=item["headline"], use_container_width=True
-                    )
+                    st.image(item["png"], caption=item["headline"], width="stretch")
                     st.download_button(
                         f"Download #{i + 1}",
                         data=item["png"],
                         file_name=f"thumbnail_{i + 1}.png",
                         mime="image/png",
-                        use_container_width=True,
+                        width="stretch",
                     )
