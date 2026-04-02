@@ -11,7 +11,8 @@ load_dotenv()
 TRANSCRIPT_LIMIT = 12000
 IMAGE_SIZE = (1024, 576)
 IDEA_KEYS = ("headline", "hook", "visual", "style", "prompt")
-DEFAULT_IMAGE_MODEL = os.getenv("IMAGE_MODEL_ID", "prompthero/openjourney")
+# prompthero/openjourney stabilityai/sd-turbo
+DEFAULT_IMAGE_MODEL = os.getenv("IMAGE_MODEL_ID", "stabilityai/sd-turbo")
 
 
 def image_device():
@@ -189,6 +190,7 @@ with st.sidebar:
         value=os.getenv("OLLAMA_MODEL", "llama3.2:latest"),
         disabled=True,
     )
+    # stabilityai/sd-turbo
     st.text_input(
         "Image model",
         value=DEFAULT_IMAGE_MODEL,
