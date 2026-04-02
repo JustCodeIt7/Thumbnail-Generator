@@ -179,7 +179,7 @@ with st.sidebar:
     )
     st.text_input(
         "Image model",
-        value=os.getenv("IMAGE_MODEL_ID", "stabilityai/sd-turbo"),
+        value=os.getenv("IMAGE_MODEL_ID", "prompthero/openjourney"),
         disabled=True,
     )
     st.caption(f"Image device: `{image_device()}`")
