@@ -5,12 +5,13 @@ import textwrap
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
-from PIL import ImageDraw, ImageFont
+from PIL import ImageDraw, ImageFont, ImageStat
 
 load_dotenv()
 TRANSCRIPT_LIMIT = 12000
 IMAGE_SIZE = (1024, 576)
 IDEA_KEYS = ("headline", "hook", "visual", "style", "prompt")
+DEFAULT_IMAGE_MODEL = os.getenv("IMAGE_MODEL_ID", "prompthero/openjourney")
 
 
 def image_device():
@@ -28,9 +29,9 @@ def load_pipeline(model_id, device):
     import torch
     from diffusers import AutoPipelineForText2Image
 
-    dtype = torch.float16 if device != "cpu" else torch.float32
+    dtype = torch.float16 if device == "cuda" else torch.float32
     kwargs = {"torch_dtype": dtype, "use_safetensors": True}
-    if dtype == torch.float16:
+    if device == "cuda":
         kwargs["variant"] = "fp16"
     try:
         pipe = AutoPipelineForText2Image.from_pretrained(model_id, **kwargs)
@@ -41,6 +42,11 @@ def load_pipeline(model_id, device):
     if device == "mps":
         pipe.enable_attention_slicing()
     return pipe
+
+
+def is_blank(image):
+    gray = image.convert("L")
+    return gray.getbbox() is None or ImageStat.Stat(gray).mean[0] < 3
 
 
 def parse_ideas(raw, count):
@@ -131,7 +137,7 @@ def add_headline(image, headline):
 
 
 def render_thumbnail(idea, used):
-    model_id = os.getenv("IMAGE_MODEL_ID", "stabilityai/sd-turbo")
+    model_id = DEFAULT_IMAGE_MODEL
     prompt = f"""
     Create a polished, bold YouTube thumbnail background in 16:9.
     Main visual: {idea["visual"]}
@@ -142,15 +148,21 @@ def render_thumbnail(idea, used):
     Do not copy these previous headlines: {", ".join(used) or "none"}
     """.strip()
     turbo = "turbo" in model_id.lower()
+    params = {
+        "prompt": prompt,
+        "negative_prompt": "text, letters, words, logo, watermark, blurry, clutter",
+        "width": IMAGE_SIZE[0],
+        "height": IMAGE_SIZE[1],
+        "num_inference_steps": 4 if turbo else 24,
+        "guidance_scale": 0.0 if turbo else 7.5,
+    }
     try:
-        image = load_pipeline(model_id, image_device())(
-            prompt=prompt,
-            negative_prompt="text, letters, words, logo, watermark, blurry, clutter",
-            width=IMAGE_SIZE[0],
-            height=IMAGE_SIZE[1],
-            num_inference_steps=4 if turbo else 24,
-            guidance_scale=0.0 if turbo else 7.5,
-        ).images[0]
+        device = image_device()
+        image = load_pipeline(model_id, device)(**params).images[0]
+        if is_blank(image) and device == "mps":
+            image = load_pipeline(model_id, "cpu")(**params).images[0]
+        if is_blank(image):
+            raise RuntimeError("The local model returned a blank image.")
     except Exception as e:
         raise RuntimeError(
             "Local image generation failed. Check diffusers installs, model availability, and device memory."
@@ -179,7 +191,7 @@ with st.sidebar:
     )
     st.text_input(
         "Image model",
-        value=os.getenv("IMAGE_MODEL_ID", "prompthero/openjourney"),
+        value=DEFAULT_IMAGE_MODEL,
         disabled=True,
     )
     st.caption(f"Image device: `{image_device()}`")
