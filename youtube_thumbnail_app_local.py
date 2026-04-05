@@ -77,18 +77,12 @@ def parse_ideas(raw, count):
     text = raw.strip()
     # Strip markdown code fences if the LLM wrapped its response
     if "```" in text:
-        text = (
-            text.split("```")[1 if text.startswith("```") else 0]
-            .replace("json", "", 1)
-            .strip()
-        )
+        text = text.split("```")[1 if text.startswith("```") else 0].replace("json", "", 1).strip()
     # Extract the JSON array from potentially noisy output
     start, end = text.find("["), text.rfind("]")
     ideas = json.loads(text[start : end + 1]) if start >= 0 and end > start else []
     # Normalize each idea to only the expected keys
-    cleaned = [
-        {k: str(item.get(k, "")).strip() for k in IDEA_KEYS} for item in ideas[:count]
-    ]
+    cleaned = [{k: str(item.get(k, "")).strip() for k in IDEA_KEYS} for item in ideas[:count]]
     if len(cleaned) != count or any(not idea["headline"] for idea in cleaned):
         raise ValueError("Planner returned incomplete thumbnail ideas.")
     return cleaned
@@ -100,30 +94,22 @@ def parse_ideas(raw, count):
 def plan_thumbnails(transcript, count):
     """Send the transcript to Ollama and return a list of thumbnail concepts."""
     prompt = f"""
-You design highly clickable YouTube thumbnails.
-Return ONLY a JSON array with exactly {count} objects.
-Each object must contain: headline, hook, visual, style, prompt.
-Rules:
-- headline is 2-5 words
-- every concept is visually distinct
-- optimize for CTR and dramatic contrast
-- no markdown, no prose, no code fences
-Transcript:
-{transcript[:TRANSCRIPT_LIMIT]}
-""".strip()
+        You design highly clickable YouTube thumbnails.
+        Return ONLY a JSON array with exactly {count} objects.
+        Each object must contain: headline, hook, visual, style, prompt.
+        Rules:
+        - headline is 2-5 words
+        - every concept is visually distinct
+        - optimize for CTR and dramatic contrast
+        - no markdown, no prose, no code fences
+        Transcript:
+        {transcript[:TRANSCRIPT_LIMIT]}
+    """.strip()
     # Invoke Ollama with a higher temperature for creative variety
     try:
-        raw = (
-            ChatOllama(
-                model=os.getenv("OLLAMA_MODEL", "llama3.2:latest"), temperature=0.8
-            )
-            .invoke(prompt)
-            .content
-        )
+        raw = ChatOllama(model=os.getenv("OLLAMA_MODEL", "llama3.2:latest"), temperature=0.8).invoke(prompt).content
     except Exception as e:
-        raise RuntimeError(
-            "Ollama planning failed. Start Ollama and pull the configured model first."
-        ) from e
+        raise RuntimeError("Ollama planning failed. Start Ollama and pull the configured model first.") from e
     return parse_ideas(raw if isinstance(raw, str) else json.dumps(raw), count)
 
 
@@ -154,9 +140,7 @@ def add_headline(image, headline):
     font = load_font(max(42, image.width // 13))
     text = textwrap.fill(headline.upper(), width=14)
     # Measure the text bounding box to center it
-    left, top, right, bottom = draw.multiline_textbbox(
-        (0, 0), text, font=font, spacing=6, stroke_width=4
-    )
+    left, top, right, bottom = draw.multiline_textbbox((0, 0), text, font=font, spacing=6, stroke_width=4)
     pad = 24
     x = (image.width - (right - left)) // 2
     y = image.height - (bottom - top) - pad * 2
@@ -215,9 +199,7 @@ def render_thumbnail(idea, used):
         if is_blank(image):
             raise RuntimeError("The local model returned a blank image.")
     except Exception as e:
-        raise RuntimeError(
-            "Local image generation failed. Check diffusers installs, model availability, and device memory."
-        ) from e
+        raise RuntimeError("Local image generation failed. Check diffusers installs, model availability, and device memory.") from e
     # Composite the headline text onto the generated image
     image = add_headline(image, idea["headline"])
     buf = io.BytesIO()
@@ -226,7 +208,6 @@ def render_thumbnail(idea, used):
 
 
 ########################### Streamlit UI #######################################
-# TODO Rename this here and in `main`
 def generate_thumbnails(transcript, count):
     # Step 1: Use Ollama to brainstorm thumbnail concepts
     with st.spinner("Planning thumbnail concepts with Ollama..."):
@@ -237,9 +218,7 @@ def generate_thumbnails(transcript, count):
     for i, idea in enumerate(ideas, start=1):
         images.append(render_thumbnail(idea, used))
         used.append(idea["headline"])  # Track used headlines to avoid repeats
-        progress.progress(
-            i / len(ideas), text=f"Generating thumbnail {i}/{len(ideas)}..."
-        )
+        progress.progress(i / len(ideas), text=f"Generating thumbnail {i}/{len(ideas)}...")
     progress.empty()
 
     # Display the creative rationale behind each thumbnail
@@ -251,9 +230,9 @@ def generate_thumbnails(transcript, count):
             st.code(item["prompt"], language="text")
     # Render final thumbnails in a 3-column grid with download buttons
     st.subheader("Generated thumbnails")
-    cols = st.columns(3)
+    cols = st.columns(2)  # Use 2 columns for better visibility of thumbnails
     for i, item in enumerate(images):
-        with cols[i % 3]:
+        with cols[i % 2]:  # Cycle through columns for even distribution
             st.image(item["png"], caption=item["headline"], width="stretch")
             st.download_button(
                 f"Download #{i + 1}",
@@ -267,9 +246,7 @@ def generate_thumbnails(transcript, count):
 def render_sidebar():
     """Render the sidebar with configuration controls and model info."""
     with st.sidebar:
-        count = st.number_input(
-            "How many thumbnails?", min_value=1, max_value=6, value=3, step=1
-        )
+        count = st.number_input("How many thumbnails?", min_value=1, max_value=6, value=3, step=1)
         st.text_input(
             "Ollama model",
             value=os.getenv("OLLAMA_MODEL", "llama3.2:latest"),
@@ -287,13 +264,9 @@ def render_sidebar():
 
 def main():
     """Main Streamlit app function to orchestrate the thumbnail generation workflow."""
-    st.set_page_config(
-        page_title="Local Thumbnail Generator", page_icon="🎬", layout="wide"
-    )
+    st.set_page_config(page_title="Local Thumbnail Generator", page_icon="🎬", layout="wide")
     st.title("🎬 Local YouTube Thumbnail Generator")
-    st.caption(
-        "Plan with Ollama, render with a local diffusion model, then add readable headline text in-app."
-    )
+    st.caption("Plan with Ollama, render with a local diffusion model, then add readable headline text in-app.")
 
     # Sidebar: configuration controls (read-only display of active models)
     count = render_sidebar()
