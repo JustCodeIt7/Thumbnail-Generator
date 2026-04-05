@@ -14,7 +14,6 @@ load_dotenv()
 
 
 ############################# Data Models #############################
-
 # Cap transcript length to stay within token limits
 TRANSCRIPT_LIMIT = 12000
 
@@ -48,8 +47,6 @@ class AppState(TypedDict):
 
 
 ######################### Model Initialization #########################
-
-
 def get_text_model() -> ChatOpenAI:
     """Return a ChatOpenAI instance configured for creative thumbnail ideation."""
     return ChatOpenAI(
@@ -64,8 +61,6 @@ def get_image_client() -> OpenAI:
 
 
 ########################## Graph Node: Plan ############################
-
-
 def plan_thumbnails(state: AppState):
     """Generate structured thumbnail concepts from a video transcript using an LLM."""
     # Bind the model to return a validated ThumbnailPlan object
@@ -100,8 +95,6 @@ def plan_thumbnails(state: AppState):
 
 
 ######################### Graph Node: Render ###########################
-
-
 def render_thumbnails(state: AppState):
     """Generate actual thumbnail images for each planned concept via the OpenAI image API."""
     client = get_image_client()
@@ -160,8 +153,6 @@ def render_thumbnails(state: AppState):
 
 
 ######################### LangGraph Pipeline ###########################
-
-
 def build_graph():
     """Compile a two-step LangGraph: plan concepts then render images."""
     graph = StateGraph(AppState)
@@ -174,8 +165,6 @@ def build_graph():
 
 
 ########################### Streamlit UI ################################
-
-
 def main():
     st.set_page_config(
         page_title="AI Thumbnail Generator", page_icon="🎬", layout="wide"
