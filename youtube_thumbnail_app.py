@@ -8,13 +8,21 @@ from openai import OpenAI
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from rich import print
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 ############################# Data Models #############################
 
+# Cap transcript length to stay within token limits
+TRANSCRIPT_LIMIT = 12000
+
 
 # Define structured output schema for a single thumbnail concept
 class ThumbnailIdea(BaseModel):
+    """A single thumbnail concept with structured components. Designed for parsing LLM output into a consistent format."""
+
     headline: str = Field(description="Short overlay text, 2-5 words")
     hook: str = Field(description="Why this thumbnail is clickable")
     visual: str = Field(description="Main visual scene or composition")
@@ -24,19 +32,19 @@ class ThumbnailIdea(BaseModel):
 
 # Wrap multiple ideas into one response object for structured parsing
 class ThumbnailPlan(BaseModel):
+    """A collection of unique thumbnail concepts. Designed for parsing LLM output into a consistent format."""
+
     ideas: List[ThumbnailIdea] = Field(description="List of unique thumbnail concepts")
 
 
 # Track data flowing through the LangGraph pipeline
 class AppState(TypedDict):
+    """The state of the application at a given point in the pipeline."""
+
     transcript: str
-    count: int
-    ideas: list
-    images: list
-
-
-# Cap transcript length to stay within token limits
-TRANSCRIPT_LIMIT = 12000
+    count: int  # Number of thumbnails to generate
+    ideas: list  # List of thumbnail concepts (dicts) generated from the plan node
+    images: list  # List of generated images with metadata from the render node
 
 
 ######################### Model Initialization #########################
@@ -65,23 +73,26 @@ def plan_thumbnails(state: AppState):
         ThumbnailPlan, method="json_schema"
     )
     transcript = state["transcript"][:TRANSCRIPT_LIMIT]
+
     prompt = f"""
-You design highly clickable YouTube thumbnails.
+    You design highly clickable YouTube thumbnails.
 
-Create EXACTLY {state["count"]} unique thumbnail concepts from the transcript below.
-Each idea must feel visually different from the others.
+    Create EXACTLY {state["count"]} unique thumbnail concepts from the transcript below.
+    Each idea must feel visually different from the others.
 
-Rules:
-- Optimize for YouTube CTR.
-- Use short, punchy overlay text.
-- Prefer one dominant subject and one clear visual story.
-- Avoid generic stock-photo vibes.
-- Make each idea distinct in angle, framing, and visual metaphor.
-- The final image should be landscape 16:9.
+    Rules:
+    - Optimize for YouTube CTR.
+    - Use short, punchy overlay text.
+    - Prefer one dominant subject and one clear visual story.
+    - Avoid generic stock-photo vibes.
+    - Make each idea distinct in angle, framing, and visual metaphor.
+    - The final image should be landscape 16:9.
 
-Transcript:
-{transcript}
-""".strip()
+    Transcript:
+    {transcript}
+    """.strip()
+
+    # Generate the structured output and parse it into our ThumbnailPlan model
     result = planner.invoke(prompt)
     # Enforce the requested count and convert to plain dicts for state serialization
     ideas = [i.model_dump() for i in result.ideas[: state["count"]]]
@@ -104,24 +115,26 @@ def render_thumbnails(state: AppState):
             else ""
         )
         img_prompt = f"""
-Create a polished, bold YouTube thumbnail in 16:9.
+            Create a polished, bold YouTube thumbnail in 16:9.
 
-Headline text in image: {idea["headline"]}
-Click hook: {idea["hook"]}
-Main visual: {idea["visual"]}
-Style: {idea["style"]}
-Additional direction: {idea["prompt"]}
+            Headline text in image: {idea["headline"]}
+            Click hook: {idea["hook"]}
+            Main visual: {idea["visual"]}
+            Style: {idea["style"]}
+            Additional direction: {idea["prompt"]}
 
-Constraints:
-- One strong focal point
-- Large readable text
-- High contrast and dramatic composition
-- Minimal clutter
-- No watermark
-- Distinct from the other thumbnails in this batch
-- Clean professional thumbnail design
-{diversity_note}
-""".strip()
+            Constraints:
+            - One strong focal point
+            - Large readable text
+            - High contrast and dramatic composition
+            - Minimal clutter
+            - No watermark
+            - Distinct from the other thumbnails in this batch
+            - Clean professional thumbnail design
+            {diversity_note}
+        """.strip()
+
+        # Generate the image and store the base64 result along with metadata for display and download
         res = client.images.generate(
             model=os.getenv("IMAGE_MODEL", "gpt-image-1.5"),
             prompt=img_prompt,
@@ -129,6 +142,7 @@ Constraints:
             quality=os.getenv("IMAGE_QUALITY", "medium"),
             output_format="png",
         )
+        # Append the result with all relevant metadata for later display and download in the UI
         outputs.append(
             {
                 "index": idx,
@@ -139,6 +153,7 @@ Constraints:
                 "b64": res.data[0].b64_json,  # Raw base64 PNG for display and download
             }
         )
+
         # Track used headlines so the next iteration can avoid repetition
         used_heads.append(idea["headline"])
     return {"images": outputs}
@@ -160,49 +175,56 @@ def build_graph():
 
 ########################### Streamlit UI ################################
 
-st.set_page_config(page_title="AI Thumbnail Generator", page_icon="🎬", layout="wide")
-st.title("🎬 AI YouTube Thumbnail Generator")
-st.caption(
-    "Paste a transcript, choose a count, and generate unique thumbnail concepts + images."
-)
 
-# Render sidebar with configuration inputs
-with st.sidebar:
-    st.header("Settings")
-    count = st.number_input(
-        "How many thumbnails?", min_value=1, max_value=6, value=3, step=1
+def main():
+    st.set_page_config(
+        page_title="AI Thumbnail Generator", page_icon="🎬", layout="wide"
     )
-    st.text_input(
-        "Text model", value=os.getenv("TEXT_MODEL", "gpt-4.1-mini"), disabled=True
+    st.title("🎬 AI YouTube Thumbnail Generator")
+    st.caption(
+        "Paste a transcript, choose a count, and generate unique thumbnail concepts + images."
     )
-    st.text_input(
-        "Image model", value=os.getenv("IMAGE_MODEL", "gpt-image-1.5"), disabled=True
+
+    # Render sidebar with configuration inputs
+    with st.sidebar:
+        st.header("Settings")
+        count = st.number_input(
+            "How many thumbnails?", min_value=1, max_value=6, value=3, step=1
+        )
+        st.text_input(
+            "Text model", value=os.getenv("TEXT_MODEL", "gpt-4.1-mini"), disabled=True
+        )
+        st.text_input(
+            "Image model",
+            value=os.getenv("IMAGE_MODEL", "gpt-image-1.5"),
+            disabled=True,
+        )
+        st.markdown("Set `OPENAI_API_KEY` before running the app.")
+
+    transcript = st.text_area(
+        "YouTube video transcript",
+        height=280,
+        placeholder="Paste the full transcript here...",
     )
-    st.markdown("Set `OPENAI_API_KEY` before running the app.")
 
-transcript = st.text_area(
-    "YouTube video transcript",
-    height=280,
-    placeholder="Paste the full transcript here...",
-)
+    generate = st.button("Generate thumbnails", type="primary", width="stretch")
 
-generate = st.button("Generate thumbnails", type="primary", width="stretch")
+    ######################### Generation Handler ############################
 
-######################### Generation Handler ############################
-
-# Validate inputs then run the full plan → render pipeline
-if generate:
-    graph = build_graph()
-    progress = st.progress(0, text="Planning thumbnail concepts...")
-    result = graph.invoke(
-        {
-            "transcript": transcript.strip(),
-            "count": int(count),
-            "ideas": [],
-            "images": [],
-        }
-    )
-    progress.progress(100, text="Done")
+    # Validate inputs then run the full plan → render pipeline
+    if generate:
+        graph = build_graph()
+        progress = st.progress(0, text="Planning thumbnail concepts...")
+        # Run the graph with initial state and update progress as we go
+        result = graph.invoke(
+            {
+                "transcript": transcript.strip(),
+                "count": int(count),
+                "ideas": [],
+                "images": [],
+            }
+        )
+        progress.progress(100, text="Done")
 
         # Display each concept's details in expandable sections
         st.subheader("Concepts")
@@ -226,3 +248,7 @@ if generate:
                     mime="image/png",
                     width="stretch",
                 )
+
+
+if __name__ == "__main__":
+    main()
