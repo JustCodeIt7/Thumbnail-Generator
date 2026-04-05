@@ -106,10 +106,12 @@ def plan_thumbnails(transcript, count):
         {transcript[:TRANSCRIPT_LIMIT]}
     """.strip()
     # Invoke Ollama with a higher temperature for creative variety
-    try:
-        raw = ChatOllama(model=os.getenv("OLLAMA_MODEL", "llama3.2:latest"), temperature=0.8).invoke(prompt).content
-    except Exception as e:
-        raise RuntimeError("Ollama planning failed. Start Ollama and pull the configured model first.") from e
+    raw = (
+        ChatOllama(model=os.getenv("OLLAMA_MODEL", "gemma4:e2b"), temperature=0.8, base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+        .invoke(prompt)
+        .content
+    )
+
     return parse_ideas(raw if isinstance(raw, str) else json.dumps(raw), count)
 
 
